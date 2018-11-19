@@ -9,8 +9,6 @@ object Varint {
   val INT_REST_BITES = 0xFFFFFF80
   val LONG_REST_BITES = 0xFFFFFFFFFFFFFF80L
 
-  // TODO (fluency03): set max size
-
   def encodeInt(num: Int): Array[Byte] = {
     @tailrec
     def rec(value: Int, acc: Array[Byte]): Array[Byte] =
@@ -29,23 +27,38 @@ object Varint {
     rec(num, Array())
   }
 
+  def decodeToInt(bytes: Array[Byte]): (Int, Int) = decodeToInt(bytes, 0)
 
-  def decodeToInt(bytes: Array[Byte]): Int = {
+  def decodeToInt(bytes: Array[Byte], offset: Int): (Int, Int) = {
     @tailrec
-    def rec(index: Int, shift: Int, acc: Int): Int =
-      if (index >= bytes.length || (bytes(index) & MSB) == 0) acc | (bytes(index) << shift)
+    def rec(index: Int, shift: Int, acc: Int): (Int, Int) =
+      if (index >= bytes.length) throw new IllegalArgumentException("Cannot find the ending Byte.")
+      else if ((bytes(index) & MSB) == 0) (acc | (bytes(index) << shift), index + 1 - offset)
       else rec(index + 1, shift + 7, acc | ((bytes(index) & LOW_7_BITS) << shift))
 
-    rec(0, 0, 0)
+    rec(offset, 0, 0)
   }
 
-  def decodeToLong(bytes: Array[Byte]): Long = {
+  def decodeToLong(bytes: Array[Byte]): (Long, Int) = decodeToLong(bytes, 0)
+
+  def decodeToLong(bytes: Array[Byte], offset: Int): (Long, Int) = {
     @tailrec
-    def rec(index: Int, shift: Long, acc: Long): Long =
-      if (index >= bytes.length || (bytes(index) & MSB) == 0) acc | (bytes(index).toLong << shift)
+    def rec(index: Int, shift: Long, acc: Long): (Long, Int) =
+      if (index >= bytes.length) throw new IllegalArgumentException("Cannot find the ending Byte.")
+      else if ((bytes(index) & MSB) == 0) (acc | (bytes(index).toLong << shift), index + 1 - offset)
       else rec(index + 1, shift + 7, acc | ((bytes(index).toLong & LOW_7_BITS) << shift))
 
-    rec(0, 0L, 0L)
+    rec(offset, 0L, 0L)
+  }
+
+  def extractLength(bytes: Array[Byte], offset: Int): Int = {
+    @tailrec
+    def rec(index: Int): Int =
+      if (index >= bytes.length) 0
+      else if ((bytes(index) & MSB) == 0) index + 1 - offset
+      else rec(index + 1)
+
+    rec(offset)
   }
 
 }
